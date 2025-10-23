@@ -1,0 +1,209 @@
+﻿<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accès requis</title>
+
+  <!-- Optionnel : incrémente ce build pour invalider toutes les mémorisations -->
+  <!-- <meta name="build" content="2025-10-14-2"> -->
+
+  <!-- Anti-cache de la page -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <style>
+    :root { --gap: 12px; }
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 6vh auto; padding: 0 16px; }
+    .header { display: grid; gap: var(--gap); margin-bottom: 20px; }
+    .hero { width: 100%; height: auto; border-radius: 12px; object-fit: cover; }
+    form { display: grid; gap: var(--gap); }
+    label { display: grid; gap: 6px; }
+    input[type=password] { padding: 10px; font-size: 16px; width: 100%; }
+    button { padding: 10px 14px; font-size: 16px; cursor: pointer; border-radius: 8px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+    .hint { color: #666; font-size: 14px; }
+    .err  { color: #b00020; min-height: 1.2em; }
+    .audio-ctrl { display: inline-flex; gap: 8px; align-items: center; }
+    .badge { font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <!-- Image d'en-tête -->
+    <img
+      id="hero"
+      class="hero"
+      src="../assets/visuel.jpeg"
+      alt="Visuel de présentation"
+      referrerpolicy="no-referrer"
+      loading="lazy">
+    <div class="toolbar">
+      <div>
+        <h1 style="margin:0;">Accès</h1>
+        <p class="hint" style="margin:4px 0 0;">Entrez le mot de passe pour continuer.</p>
+      </div>
+      <!-- Contrôles audio -->
+      <div class="audio-ctrl">
+        <button id="toggleAudio" type="button">▶︎ Lire</button>
+        <span id="audioState" class="badge">audio en veille</span>
+      </div>
+    </div>
+  </div>
+
+  <form id="f" autocomplete="off">
+    <label>Mot de passe
+      <input id="pwd" type="password" inputmode="text" autocomplete="current-password" required autofocus>
+    </label>
+    <label><input type="checkbox" id="remember"> Mémoriser sur cet appareil</label>
+    <button type="submit">Entrer</button>
+    <p id="msg" class="err" role="status" aria-live="polite"></p>
+  </form>
+
+  <!-- Lecteur audio -->
+  <audio id="bgm" preload="auto" loop playsinline>
+    <source src="../assets/musique.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    // ========= PARAMÈTRES À ADAPTER =========
+    const DESTINATION_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=NC0kJCISg0in55vLjwbwD3Zy_hrYBjxInmaT9y-tGrZURExNMVJYMEFNUVhVQjZQUDU4RzVPUVFOSi4u&r93a825a4152c45d5980eaddf89694b3f=%22Arcature%20NE%20-%20Int%C3%A9rieure%22&rd1c0241fc3034ecba3529b5b1166a688=%22H4-NE-I-N%22&rf146fd470862449297bae3cb6f98c497=%22X%22&rf331070798af418eb2311b485b26eabb=%22X%22&r2620ca9137444c2ea23300222f6426c6=%22X%22"; // destination finale
+    const HASH_HEX = "da28719dfd9c4da81f433d4788c3d0e10d97180018d0e32b65c967c45661597e"; // hash SHA-256 du mot de passe
+    const REMEMBER_KEY = "ok-global";
+    const CODE_VERSION_KEY = "code-version"; // stocke la version du fichier pour reset auto
+
+    // ========= RÉINITIALISATION "MÉMORISER" SI LE CODE A CHANGÉ =========
+    const metaBuild = document.querySelector('meta[name="build"]')?.content;
+    const CODE_VERSION = metaBuild || document.lastModified;
+    const prevVersion = localStorage.getItem(CODE_VERSION_KEY);
+    if (prevVersion !== CODE_VERSION) {
+      localStorage.removeItem(REMEMBER_KEY);
+      localStorage.setItem(CODE_VERSION_KEY, CODE_VERSION);
+    }
+
+    // ========= ANTI-CACHE & SESSION CLEAN =========
+    sessionStorage.clear(); // session neuve (on ne touche pas au "remember")
+    window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(true); });
+    if ('caches' in window) { caches.keys().then(names => names.forEach(n => caches.delete(n))); }
+
+    // Force le rafraîchissement des médias si remplacés dans le dépôt
+    const MEDIA_BUST = Date.now();
+    const hero = document.getElementById('hero');
+    hero.src = hero.src + (hero.src.includes('?') ? '&' : '?') + 'v=' + MEDIA_BUST;
+
+    const bgm = document.getElementById('bgm');
+    const src = bgm.querySelector('source');
+    src.src = src.src + (src.src.includes('?') ? '&' : '?') + 'v=' + MEDIA_BUST;
+    bgm.load();
+
+    function makeCacheBustedUrl(url) {
+      const sep = url.includes('?') ? '&' : '?';
+      return url + sep + 'v=' + Date.now();
+    }
+
+    // ========= SAUT D'ÉCRAN SI DÉJÀ MÉMORISÉ (ET CODE INCHANGÉ) =========
+    if (localStorage.getItem(REMEMBER_KEY) === "1" && localStorage.getItem(CODE_VERSION_KEY) === CODE_VERSION) {
+      location.replace(makeCacheBustedUrl(DESTINATION_URL));
+    }
+
+    // ========= OUTILS =========
+    async function sha256Hex(text) {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    // ========= FORMULAIRE =========
+    const form = document.getElementById("f");
+    const msg  = document.getElementById("msg");
+    const PATH = location.pathname;
+    const triesKey = "tries:" + PATH;
+    const lockKey  = "lock-until:" + PATH;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+
+      const now = Date.now();
+      const lockUntil = parseInt(sessionStorage.getItem(lockKey) || "0", 10);
+      if (now < lockUntil) {
+        msg.textContent = "Trop d'essais. Réessayez dans quelques secondes.";
+        return;
+      }
+
+      const pwd = document.getElementById("pwd").value;
+      const remember = document.getElementById("remember").checked;
+      const hash = await sha256Hex(pwd);
+
+      if (hash === HASH_HEX) {
+        if (remember) localStorage.setItem(REMEMBER_KEY, "1");
+        sessionStorage.removeItem(triesKey);
+        sessionStorage.removeItem(lockKey);
+        location.replace(makeCacheBustedUrl(DESTINATION_URL));
+      } else {
+        const tries = 1 + parseInt(sessionStorage.getItem(triesKey) || "0", 10);
+        sessionStorage.setItem(triesKey, String(tries));
+        if (tries >= 5) {
+          sessionStorage.setItem(lockKey, String(now + 30_000)); // blocage 30 s
+          sessionStorage.setItem(triesKey, "0");
+          msg.textContent = "Mot de passe incorrect. Verrouillage 30 s.";
+        } else {
+          msg.textContent = "Mot de passe incorrect.";
+        }
+      }
+    });
+
+    // ========= AUDIO : AUTOPLAY MUTED + DÉVERROUILLAGE AUTO AU 1er GESTE =========
+    const toggleBtn = document.getElementById('toggleAudio');
+    const state = document.getElementById('audioState');
+
+    // Politique la plus compatible : démarrer en muet automatiquement,
+    // puis retirer le mute au premier geste utilisateur (tap/clic/touche).
+    async function tryAutoplayMuted() {
+      try {
+        bgm.muted = true;              // autorise l'autoplay sur la plupart des navigateurs
+        await bgm.play();              // tente de lancer en muet
+        toggleBtn.textContent = "⏸︎ Pause";
+        state.textContent = "lecture (muet)";
+        // Au premier geste, on remet le son
+        const unlock = async () => {
+          try {
+            bgm.muted = false;
+            if (bgm.paused) await bgm.play();
+            state.textContent = "lecture";
+          } catch {}
+          window.removeEventListener('pointerdown', unlock);
+          window.removeEventListener('keydown', unlock);
+          window.removeEventListener('touchstart', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+        window.addEventListener('touchstart', unlock, { once: true });
+      } catch {
+        // Autoplay refusé: on attend un clic sur le bouton
+        toggleBtn.textContent = "▶︎ Lire";
+        state.textContent = "audio en veille";
+      }
+    }
+
+    tryAutoplayMuted();
+
+    toggleBtn.addEventListener('click', async () => {
+      try {
+        if (bgm.paused) {
+          await bgm.play();
+          bgm.muted = false; // si l'utilisateur a cliqué, on peut activer le son
+          toggleBtn.textContent = "⏸︎ Pause";
+          state.textContent = "lecture";
+        } else {
+          bgm.pause();
+          toggleBtn.textContent = "▶︎ Lire";
+          state.textContent = "en pause";
+        }
+      } catch {
+        state.textContent = "lecture impossible (politique d'autoplay)";
+      }
+    });
+  </script>
+</body>
+</html>
