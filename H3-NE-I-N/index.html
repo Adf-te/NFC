@@ -68,9 +68,12 @@
 
   <script>
     // ========= PARAMÈTRES À ADAPTER =========
-    const DESTINATION_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=NC0kJCISg0in55vLjwbwD3Zy_hrYBjxInmaT9y-tGrZURExNMVJYMEFNUVhVQjZQUDU4RzVPUVFOSi4u&r93a825a4152c45d5980eaddf89694b3f=%22Arcature%20NE%20-%20Int%C3%A9rieure%22&rd1c0241fc3034ecba3529b5b1166a688=%22H3-NE-I-N%22&rf146fd470862449297bae3cb6f98c497=%22X%22&rf331070798af418eb2311b485b26eabb=%22X%22"; // hash SHA-256 du mot de passe
+    const DESTINATION_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=NC0kJCISg0in55vLjwbwD3Zy_hrYBjxInmaT9y-tGrZURExNMVJYMEFNUVhVQjZQUDU4RzVPUVFOSi4u&r93a825a4152c45d5980eaddf89694b3f=%22Arcature%20NE%20-%20Int%C3%A9rieure%22&rd1c0241fc3034ecba3529b5b1166a688=%22H3-NE-I-N%22&rf146fd470862449297bae3cb6f98c497=%22X%22&rf331070798af418eb2311b485b26eabb=%22X%22"; // destination finale
+
+    const HASH_HEX = "da28719dfd9c4da81f433d4788c3d0e10d97180018d0e32b65c967c45661597e"; // hash SHA-256 du mot de passe
     const REMEMBER_KEY = "ok-global";
     const CODE_VERSION_KEY = "code-version"; // stocke la version du fichier pour reset auto
+
 
     // ========= RÉINITIALISATION "MÉMORISER" SI LE CODE A CHANGÉ =========
     const metaBuild = document.querySelector('meta[name="build"]')?.content;
